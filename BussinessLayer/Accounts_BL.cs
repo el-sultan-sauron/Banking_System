@@ -1,6 +1,6 @@
 ﻿using DataAccessLayer;
-using Microsoft.Identity.Client;
-using System.Numerics;
+using System.Data;
+
 
 namespace BussinessLayer
 {
@@ -22,17 +22,17 @@ namespace BussinessLayer
             this.balance = balance;
             this.createdat = createdat;
             this.isDeleted = isdeleted;
-        }    
-        
+        }
+
         public static bool AddNewAccount(string fullname, string email, string password)
         {
-            //hashing will be added soon 
-            return Accounts_DAL.AddNewAccount(fullname, email, password) != -1;
+            string hashedPassword = clsUtil.ComputeHash(password);
+            return Accounts_DAL.AddNewAccount(fullname, email, hashedPassword) != -1;
         }
         public static bool UpdateAccount(int accountid, string fullname, string email, string password)
         {
-            //hashing
-            return Accounts_DAL.UpdateAccount(accountid, fullname, email, password);
+            string hashedPassword = clsUtil.ComputeHash(password);
+            return Accounts_DAL.UpdateAccount(accountid, fullname, email, hashedPassword);
         }
         public static bool DeleteAccount(int accountid) => Accounts_DAL.DeleteAccount(accountid);
         public static bool RetriveAccount(int accountid) => Accounts_DAL.RetriveAccount(accountid);
@@ -48,6 +48,21 @@ namespace BussinessLayer
             return new Accounts_BL(accountid, fullname, email, hashedpassword, balance, createdat, isdeleted);
             
         }
-
+        public static DataTable GetAllAccounts(byte opt) => Accounts_DAL.GetAllAccounts(opt);
+        public static int? Login(string email, string password)
+        {
+            string HashedPassword = clsUtil.ComputeHash(password);
+            return Accounts_DAL.Login(email, HashedPassword);
+        }
+        public static int? Login(int accountid,string password)
+        {
+            string hashedPassword = clsUtil.ComputeHash(password);
+            return Accounts_DAL.Login(accountid, hashedPassword);
+        }
+        public static bool ChangePassword(int accountid,string oldpassword,string newpassword)
+        {
+            string HashedOldPassword= clsUtil.ComputeHash(oldpassword), HashedNewPassword = clsUtil.ComputeHash(newpassword);
+            return Accounts_DAL.ChangePassword(accountid, HashedOldPassword, HashedNewPassword);
+        }
      }
 }
