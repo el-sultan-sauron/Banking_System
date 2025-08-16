@@ -1,222 +1,192 @@
-﻿using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
+using Npgsql;
 using System.Data;
+
+
 namespace DataAccessLayer
 {
 
-  
-   static class ConfigurationHelper
-    {
-        private static IConfiguration? _configuration;
-
-        public static IConfiguration GetConfiguration()
-        {
-            if (_configuration == null)
-            {
-                _configuration = new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
-                    .AddJsonFile("appsettings.json")
-                    .Build();
-            }
-            return _configuration;
-        }
-    }
     public class Accounts_DAL
     {
         static public int AddNewAccount(string fullname, string email, string passwordhash)
         {
-
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
+            const string query = @"
+                INSERT INTO accounts (fullname, email, passwordhash)
+                VALUES (@fullname, @email, @passwordhash)
+                RETURNING accountid;
+            ";
 
-            const string query = "insert into accounts (fullname,email,passwordhash) values (@fullname,@email,@passwordhash); select scope_identity();";
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
 
-                command.Parameters.Add("@fullname", SqlDbType.VarChar, 255).Value = fullname;
-                command.Parameters.Add("@email", SqlDbType.VarChar, 255).Value = email;
-                command.Parameters.Add("@passwordhash", SqlDbType.VarChar, 255).Value = passwordhash;
+                command.Parameters.AddWithValue("@fullname", fullname);
+                command.Parameters.AddWithValue("@email", email);
+                command.Parameters.AddWithValue("@passwordhash", passwordhash);
 
                 connection.Open();
-
                 var result = command.ExecuteScalar();
 
                 return result != null ? Convert.ToInt32(result) : -1;
-
             }
-            catch (SqlException sqlEx)
+            catch (PostgresException pgEx)
             {
-
-                if (sqlEx.Number == 2627) Console.Error.WriteLine("Email already exists.");
-                else Console.Error.WriteLine($"SQL Error {sqlEx.Number}: {sqlEx.Message}");
-
-
+                if (pgEx.SqlState == "23505") 
+                    Console.Error.WriteLine("Email already exists.");
+                else
+                    Console.Error.WriteLine($"Postgres Error {pgEx.SqlState}: {pgEx.Message}");
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
 
             return -1;
         }
+
         static public bool UpdateAccount(int AccountID, string fullname, string email, string passwordhash)
         {
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "update accounts set fullname = @fullname,email = @email,passwordhash = @passwordhash where accountid = @accountid;";
+            const string query = @"
+                UPDATE accounts 
+                SET fullname = @fullname, email = @email, passwordhash = @passwordhash
+                WHERE accountid = @accountid;
+            ";
+
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
 
-                command.Parameters.Add("@accountid", SqlDbType.Int).Value = AccountID;
-                command.Parameters.Add("@fullname", SqlDbType.VarChar, 255).Value = fullname;
-                command.Parameters.Add("@email", SqlDbType.VarChar, 255).Value = email;
-                command.Parameters.Add("@passwordhash", SqlDbType.VarChar, 255).Value = passwordhash;
+                command.Parameters.AddWithValue("@accountid", AccountID);
+                command.Parameters.AddWithValue("@fullname", fullname);
+                command.Parameters.AddWithValue("@email", email);
+                command.Parameters.AddWithValue("@passwordhash", passwordhash);
 
                 connection.Open();
-
                 return command.ExecuteNonQuery() > 0;
             }
-
-            catch (SqlException sqlEx) { Console.Error.WriteLine(sqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
 
             return false;
-
         }
+
         static public bool DeleteAccount(int AccountID)
         {
-
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "update accounts set isdeleted = 1 where accountid = @accountid;";
+            const string query = "UPDATE accounts SET isdeleted = TRUE WHERE accountid = @accountid;";
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
-
-                command.Parameters.Add("@accountid", SqlDbType.Int).Value = AccountID;
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@accountid", AccountID);
 
                 connection.Open();
-
                 return command.ExecuteNonQuery() > 0;
             }
-
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
 
             return false;
         }
+
         static public bool RetriveAccount(int AccountID)
         {
-
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "update accounts set isdeleted = 0 where accountid = @accountid;";
+            const string query = "UPDATE accounts SET isdeleted = FALSE WHERE accountid = @accountid;";
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
-
-                command.Parameters.Add("@accountid", SqlDbType.Int).Value = AccountID;
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@accountid", AccountID);
 
                 connection.Open();
-
                 return command.ExecuteNonQuery() > 0;
             }
-
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
 
             return false;
         }
+
         static public bool IsAccountDeleted(int AccountID)
         {
-
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "select isdeleted from accounts where accountid = @accountid;";
+            const string query = "SELECT isdeleted FROM accounts WHERE accountid = @accountid;";
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
-
-                command.Parameters.Add("@accountid", SqlDbType.Int).Value = AccountID;
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@accountid", AccountID);
 
                 connection.Open();
-
-                var Result = command.ExecuteScalar();
-                if (Result != null && Convert.ToBoolean(Result)) return true;
-
+                var result = command.ExecuteScalar();
+                return result != null && Convert.ToBoolean(result);
             }
-
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
 
             return false;
         }
+
         static public bool IsAccountExists(int AccountID)
         {
-
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "select 1 from accounts where accountid = @accountid;";
+            const string query = "SELECT 1 FROM accounts WHERE accountid = @accountid;";
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
-
-                command.Parameters.Add("@accountid", SqlDbType.Int).Value = AccountID;
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@accountid", AccountID);
 
                 connection.Open();
-
-                var Result = command.ExecuteScalar();
-                if (Result != null && Convert.ToBoolean(Result)) return true;
-
+                var result = command.ExecuteScalar();
+                return result != null;
             }
-
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
 
             return false;
         }
+
         static public bool GetAccountInfo(int AccountID, ref string fullname, ref string email, ref string passwordhash, ref decimal balance, ref DateTime createdat, ref bool isdeleted)
         {
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "SELECT fullname, email, passwordhash, balance, createdat, isdeleted FROM accounts where accountid = @accountid;";
+            const string query = @"
+                SELECT fullname, email, passwordhash, balance, createdat, isdeleted
+                FROM accounts 
+                WHERE accountid = @accountid;
+            ";
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
-
-
-                command.Parameters.Add("@accountid", SqlDbType.Int).Value = AccountID;
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@accountid", AccountID);
 
                 connection.Open();
-
                 using var reader = command.ExecuteReader();
 
                 if (reader.Read())
                 {
-
                     fullname = reader.GetString(reader.GetOrdinal("fullname"));
                     email = reader.GetString(reader.GetOrdinal("email"));
                     passwordhash = reader.GetString(reader.GetOrdinal("passwordhash"));
@@ -226,17 +196,13 @@ namespace DataAccessLayer
 
                     return true;
                 }
-
-
-
             }
-
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
 
             return false;
         }
+
         static public DataTable GetAllAccounts(byte opt)
         {
             var s = ConfigurationHelper.GetConfiguration();
@@ -246,25 +212,21 @@ namespace DataAccessLayer
             string query = opt switch
             {
                 0 => "SELECT * FROM accounts;",
-                1 => "SELECT * FROM accounts WHERE isdeleted = 0;",
-                2 => "SELECT * FROM accounts WHERE isdeleted = 1;",
+                1 => "SELECT * FROM accounts WHERE isdeleted = FALSE;",
+                2 => "SELECT * FROM accounts WHERE isdeleted = TRUE;",
                 _ => throw new ArgumentException("Invalid option")
             };
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
 
                 connection.Open();
-
                 using var reader = command.ExecuteReader();
-
                 dtAllAccounts.Load(reader);
             }
-
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
 
             return dtAllAccounts;
@@ -275,57 +237,69 @@ namespace DataAccessLayer
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "select accountid from accounts where email = @email and passwordhash = @password";
+            const string query = @"SELECT accountid FROM accounts
+                WHERE email = @email AND passwordhash = @password;";
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
 
-
-                command.Parameters.Add("@email", SqlDbType.VarChar,255).Value = email;
-                command.Parameters.Add("@password",SqlDbType.VarChar,255).Value = password; 
+                command.Parameters.AddWithValue("@email", email);
+                command.Parameters.AddWithValue("@password", password);
 
                 connection.Open();
-
                 using var reader = command.ExecuteReader();
-
-                if (reader.Read()) return reader.GetInt32(reader.GetOrdinal("accountid"));
-                        
+                
+               
+                if (reader.Read())
+                { 
+                    int CurrentID =  reader.GetInt32(reader.GetOrdinal("accountid"));
+                    sessions_DAL.AccountLogedToSystem(CurrentID);
+                     return CurrentID;
+                }
+              
+                   
             }
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
-
             return null;
         }
+
         static public int? Login(int accountid, string password)
         {
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "select accountid from accounts where accountid = @accountid and passwordhash = @password";
+            const string query = "SELECT accountid FROM accounts WHERE accountid = @accountid AND passwordhash = @password;";
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
 
-
-                command.Parameters.Add("@accountid", SqlDbType.Int).Value = accountid;
-                command.Parameters.Add("@password", SqlDbType.VarChar, 255).Value = password;
+                command.Parameters.AddWithValue("@accountid", accountid);
+                command.Parameters.AddWithValue("@password", password);
 
                 connection.Open();
-
                 using var reader = command.ExecuteReader();
+                if (reader.Read()) {
 
-                if (reader.Read()) return reader.GetInt32(reader.GetOrdinal("accountid"));
+                    int CurrentID = reader.GetInt32(reader.GetOrdinal("accountid"));
+                     sessions_DAL.AccountLogedToSystem(CurrentID);
+                    return CurrentID ;
+                }
+                 
+              
+                
+            }
+            catch (PostgresException pgEx) { 
+                Console.Error.WriteLine(pgEx.Message);
+            }
+            catch (Exception ex) { 
+                Console.Error.WriteLine(ex.Message);
 
             }
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
-            catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
-
             return null;
         }
 
@@ -334,27 +308,54 @@ namespace DataAccessLayer
             var s = ConfigurationHelper.GetConfiguration();
             var ConnectionString = s.GetConnectionString("My_DB_Connection");
 
-            const string query = "update accounts set passwordhash = @newpassword where accountid = @accountid and passwordhash = @oldpassword;";
+            const string query = @"
+                UPDATE accounts 
+                SET passwordhash = @newpassword
+                WHERE accountid = @accountid AND passwordhash = @oldpassword;
+            ";
 
             try
             {
-                using var connection = new SqlConnection(ConnectionString);
-                using var command = new SqlCommand(query, connection);
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
 
-                command.Parameters.Add("@newpassword", SqlDbType.VarChar, 255).Value = NewPassword;
-                command.Parameters.Add("@accountid",SqlDbType.Int).Value = accountid;
-                command.Parameters.Add("@oldpassword", SqlDbType.VarChar, 255).Value = OldPassword;
-                
+                command.Parameters.AddWithValue("@newpassword", NewPassword);
+                command.Parameters.AddWithValue("@accountid", accountid);
+                command.Parameters.AddWithValue("@oldpassword", OldPassword);
+
                 connection.Open();
-
                 return command.ExecuteNonQuery() > 0;
             }
-            catch (SqlException SqlEx) { Console.Error.WriteLine(SqlEx.Message); }
-
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
             catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
 
             return false;
         }
+
+        static public decimal GetAccountBalance(int accountid) {
+
+            var s = ConfigurationHelper.GetConfiguration();
+            var ConnectionString = s.GetConnectionString("My_DB_Connection");
+
+            const string query = "SELECT balance FROM accounts WHERE accountid = @accountid AND isdeleted = FALSE";
+            try
+            {
+                using var connection = new NpgsqlConnection(ConnectionString);
+                using var command = new NpgsqlCommand(query, connection);
+
+                command.Parameters.AddWithValue("@accountid", accountid);
+             
+
+                connection.Open();
+                
+                var balance = command.ExecuteScalar() as decimal?; 
+                return balance ?? 0m;
+
+            }
+            catch (PostgresException pgEx) { Console.Error.WriteLine(pgEx.Message); }
+            catch (Exception ex) { Console.Error.WriteLine(ex.Message); }
+            return 0m;
+
+        }
     }
 }
- 

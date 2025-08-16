@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace BussinessLayer
 {
-    internal class Sessions_BL
+    public class Sessions_BL
     {
+       public static int AccountLogedToSystem(int Accountid) => DataAccessLayer.sessions_DAL.AccountLogedToSystem(Accountid);
+
     }
 }

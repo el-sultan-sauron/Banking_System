@@ -1,19 +1,17 @@
-﻿using BussinessLayer;
-using System;
+﻿
 namespace PrsentetionLayer
 {
-    class Program
-    {
+  class Program {
         
         
-         public static void Main(string[] args){
-        
-        } 
+     public static void Main(string[] args){
+
+      
+
+              
+     } 
         
 
     
-    }
-
-
-
+  }
 }
